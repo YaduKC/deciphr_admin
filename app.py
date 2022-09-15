@@ -1,5 +1,3 @@
-from turtle import onclick
-import requests
 import streamlit as st
 import deciphr_api as deciphr
 
