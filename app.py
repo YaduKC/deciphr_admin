@@ -1,5 +1,9 @@
+import io
+import time
 import streamlit as st
 import deciphr_api as deciphr
+import replicate_api as replicate
+import requests
 
 st.set_page_config(page_title="Deciphr Admins", page_icon=":rocket:")
 
@@ -26,6 +30,18 @@ if "curr_file_data" not in st.session_state:
     
 if "curr_file_quotes" not in st.session_state:
     st.session_state.curr_file_quotes = None
+    
+if "image_generation_dashboard" not in st.session_state:
+    st.session_state.image_generation_dashboard = None
+    
+if "animation_generation_dashboard" not in st.session_state:
+    st.session_state.animation_generation_dashboard = None
+    
+if "curr_promt_image" not in st.session_state:
+    st.session_state.curr_promt_image = None
+
+if "curr_promt_video" not in st.session_state:
+    st.session_state.curr_promt_video = None
     
 
 def header():
@@ -70,6 +86,12 @@ def dashboard():
     st.write("---")
     st.subheader("Your Transcripts")
     
+    with st.sidebar:
+        st.header("Miscaellaneous")
+        st.write("---")
+        st.button("1: Image Generation", on_click=set_generate_image_flag)
+        st.button("2: Animation", on_click=set_generate_animation_flag)
+    
     n = 4
     user_transcripts = deciphr.get_user_transcripts(st.session_state.token)
     user_transcripts_chunked = [user_transcripts[i * n:(i + 1) * n] for i in range((len(user_transcripts) + n - 1) // n )]
@@ -100,6 +122,104 @@ def dashboard():
                     st.button("View File", key = transcript['id'], on_click=set_curr_vewing_file_id, args=(transcript['id'],))
                 index += 1
             st.write("---")
+            
+
+def set_generate_image_flag():
+    st.session_state.image_generation_dashboard = True
+    
+def set_generate_animation_flag():
+    st.session_state.animation_generation_dashboard = True
+    
+def image_generation_dashboard():
+    st.write("---")
+    st.info("Click here to go back to your dashboard.")
+    st.button("Back", on_click=reset_file_attributes)
+    st.header("Image Generation")
+    st.write("---")
+    st.info("Tips for writing prompts!")
+    st.caption('- Be As Specific as You Can.')
+    st.caption('- Name Specific Art Styles or Mediums.')
+    st.caption('- Name Specific Artists to Guide Stable Diffusion.')
+    st.caption('- Reference The Example Prompt given Below.')
+    st.write("---")
+    
+    prompt = st.text_area("Enter Your Prompt Here", height=150, value="A grand city in the year 2100, atmospheric, hyper realistic, 8k, epic composition, cinematic, octane render, artstation landscape vista photography by Carr Clifton & Galen Rowell, 16K resolution, Landscape veduta photo by Dustin Lefevre & tdraw, 8k resolution, detailed landscape painting by Ivan Shishkin, DeviantArt, Flickr, rendered in Enscape, Miyazaki, Nausicaa Ghibli, Breath of The Wild, 4k detailed post processing, artstation, rendering by octane, unreal engine")
+    if st.button("Submit"):
+        if not prompt:
+            st.error("Please enter a prompt.")
+        else:
+            with st.spinner('Processing Prompt...'):
+                res = replicate.generate_image(prompt)
+                st.session_state.curr_promt_image = res
+    if st.session_state.curr_promt_image:
+        st.write("---")
+        with st.container():
+            cols = st.columns([1,5,1])
+            cols[0].write()
+            cols[1].image(st.session_state.curr_promt_image)
+            # Download image
+            response = requests.get(st.session_state.curr_promt_image)
+            image_bytes = io.BytesIO(response.content)
+            btn = cols[1].download_button(
+                                        label="Download Image",
+                                        data=image_bytes,
+                                        file_name="deciphr_stable_diffusion.png",
+                                        mime="image/png"
+                                    )
+            cols[2].write()
+        st.write("---")
+        
+def animation_generation_dashboard():
+    st.write("---")
+    st.info("Click here to go back to your dashboard.")
+    st.button("Back", on_click=reset_file_attributes)
+    st.header("Animations")
+    st.write("---")
+    st.info("Tips for writing prompts!")
+    st.caption('- Be As Specific as You Can.')
+    st.caption('- Name Specific Art Styles or Mediums.')
+    st.caption('- Name Specific Artists to Guide Stable Diffusion.')
+    st.caption('- Provide \'frame number : prompt at this frame\', separate different prompts with \'|\'. Make sure the frame number does not exceed 100.')
+    st.caption('- End prompts with \'trending on ArtStation\' this seems to make the results better in my opinion(doesn\'t always).')
+    st.caption('- Reference The Example Prompt given Below.')
+    st.write("---")
+    prompt = st.text_area("Enter Your Prompt Here", height=150, value="0: a beautiful apple, trending on Artstation | 33: a beautiful banana, trending on Artstation | 66: a beautiful coconut, trending on Artstation | 100: a beautiful durian, trending on Artstation")
+    if st.button("Submit"):
+        if not prompt:
+            st.error("Please enter a prompt.")
+        else:
+            status_text = 'Processing Prompt...'
+            with st.spinner(status_text):
+                get_url = replicate.generate_video(prompt)
+                status, frames_complete, output, logs = replicate.video_results(get_url)
+                my_bar = st.progress(0)
+                while status != "succeeded":
+                    time.sleep(4)
+                    status, frames_complete, output, logs = replicate.video_results(get_url)
+                    my_bar.progress(frames_complete)
+                    if status == "failed":
+                        st.error("Error")
+                        break
+                st.session_state.curr_promt_video = output
+    if st.session_state.curr_promt_video:
+        st.write("---")
+        with st.container():
+            cols = st.columns([1,5,1])
+            cols[0].write()
+            cols[1].video(st.session_state.curr_promt_video)
+            
+            # Download video
+            response = requests.get(st.session_state.curr_promt_video)
+            image_bytes = io.BytesIO(response.content)
+            btn = cols[1].download_button(
+                                        label="Download Video",
+                                        data=image_bytes,
+                                        file_name="deciphr_deforum_stable_diffusion.mp4",
+                                        mime="video/mp4"
+                                    )
+            cols[2].write()
+        st.write("---")
+    
 
 def set_curr_vewing_file_id(id):
     st.session_state.curr_file_id = id
@@ -167,6 +287,8 @@ def reset_file_attributes():
     st.session_state.curr_file_id = None
     st.session_state.curr_file_data = None
     st.session_state.curr_file_quotes = None
+    st.session_state.image_generation_dashboard = None
+    st.session_state.animation_generation_dashboard = None
 
 if __name__ == "__main__":
     if not st.session_state.logged_in_flag:
@@ -174,5 +296,9 @@ if __name__ == "__main__":
         login_container()
     elif st.session_state.curr_file_id is not None:
         view_file()
+    elif st.session_state.image_generation_dashboard:
+        image_generation_dashboard()
+    elif st.session_state.animation_generation_dashboard:
+        animation_generation_dashboard()
     else:
         dashboard()
