@@ -1,9 +1,7 @@
 import os
-from config import REPLICATE_API_TOKEN
 import requests
 import time
 import re
-from dotenv import load_dotenv
 import streamlit as st
 
 REPLICATE_API_TOKEN = st.secrets["REPLICATE_API_TOKEN"]
