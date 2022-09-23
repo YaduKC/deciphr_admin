@@ -4,10 +4,9 @@ import requests
 import time
 import re
 from dotenv import load_dotenv
+import streamlit as st
 
-load_dotenv('config.env')
-
-REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
+REPLICATE_API_TOKEN = st.secrets["REPLICATE_API_TOKEN"]
 
 def generate_image(prompt):
     headers = {
