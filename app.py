@@ -2,7 +2,6 @@ from ast import arg
 from email.mime import audio
 import io
 import time
-from turtle import onclick
 import streamlit as st
 import deciphr_api as deciphr
 import replicate_api as replicate
