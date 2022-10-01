@@ -38,7 +38,7 @@ def generate_image(prompt):
     
     return output
 
-def generate_video(prompt):
+def generate_video(prompt, max_frames=100, fps=15):
     headers = {
     'Authorization': f"Token {REPLICATE_API_TOKEN}",
     # Already added when you pass json= but not when you pass data=
@@ -48,9 +48,9 @@ def generate_video(prompt):
     json_data = {
         'version': 'e22e77495f2fb83c34d5fae2ad8ab63c0a87b6b573b6208e1535b23b89ea66d6',
         'input': {
-            'max_frames': 100,
+            'max_frames': max_frames,
             'animation_prompts': prompt,
-            'fps': 15
+            'fps': fps
         },
     }
 
@@ -67,6 +67,7 @@ def video_results(get_url):
     }
     resp = requests.get(get_url, headers=headers)
     logs = resp.json()['logs']
+    print(resp.json())
     try:
         frames_complete = re.findall(r'Rendering animation frame \d+ of \d+', logs)[-1]
         frames_complete = int(frames_complete.split(' ')[-3])
