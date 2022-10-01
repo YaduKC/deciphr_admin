@@ -45,24 +45,6 @@ box-shadow: 10px 10px 30px 2px #000000;
 }
 </style>
 """
-def local_css(file_name="background.css"):
-    with open(file_name) as f:
-        style = f'<style>{f.read()}</style>'
-        mk = """<div class="area" data-testid="stAppViewContainer">
-            <ul class="circles">
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-            </ul>
-    </div >"""
-        # st.markdown(style+"\n"+mk, unsafe_allow_html=True)
         
 st.markdown(page_bg_img, unsafe_allow_html=True)
 
@@ -637,7 +619,6 @@ def reset_file_attributes():
     
 
 if __name__ == "__main__":
-    local_css()
     if not st.session_state.logged_in_flag:
         header()
         login_container()
