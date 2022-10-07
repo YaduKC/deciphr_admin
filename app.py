@@ -1,5 +1,3 @@
-from ast import arg
-from email.mime import audio
 import io
 import time
 import streamlit as st
@@ -10,6 +8,7 @@ from genre import genre as all_genres
 import datetime
 from collections import namedtuple
 import re
+
 st.set_page_config(page_title="Deciphr Admins", page_icon=":rocket:")
 
 page_bg_img = """
@@ -42,6 +41,10 @@ right: 2rem;
 background-color: #0c0c0c;
 border-radius: 5px;
 box-shadow: 10px 10px 30px 2px #000000;
+}
+[id="body"]
+{
+    background: rgba(0, 0, 0, 0.1);
 }
 </style>
 """
@@ -153,10 +156,6 @@ def login_user(email, password):
                 st.error("Access denied. Contact admin for permission.")
             
 def logout_user():
-    st.session_state.token = None
-    st.session_state.display_name = None
-    st.session_state.user_email = None
-    st.session_state.user_id = None
     st.session_state.logged_in_flag = False
     
 def set_email_verification_flag():
@@ -165,7 +164,7 @@ def set_email_verification_flag():
             
 def dashboard():
     st.title("Dashboard")
-    st.button("Logout", on_click=logout_user)
+    # st.button("Logout", on_click=logout_user)
     st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
     st.subheader("Your Transcripts")
     
