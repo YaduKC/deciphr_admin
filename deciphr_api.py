@@ -7,7 +7,7 @@ base_url = "https://api.deciphr.ai"
 staging_url = "http://13.210.61.239:9999"
 
 def login(email: str, password: str):
-    url = f"{staging_url}/login"
+    url = f"{base_url}/login"
     data = {
         "email": email,
         "password": password

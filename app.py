@@ -173,9 +173,9 @@ def dashboard():
         st.button("1: Image Generation", on_click=set_generate_image_flag)
         st.button("2: Animation", on_click=set_generate_animation_flag)
         st.write("---")
-        st.header("Prospective User")
-        st.button("1: Search ListenNotes", on_click=set_search_listen_notes_flag)
-        st.write("---")
+        #st.header("Prospective User")
+        #st.button("1: Search ListenNotes", on_click=set_search_listen_notes_flag)
+        #st.write("---")
         st.header("Admin")
         st.button("Email Verification", on_click=set_email_verification_flag)
     
@@ -627,10 +627,10 @@ if __name__ == "__main__":
         image_generation_dashboard()
     elif st.session_state.animation_generation_dashboard:
         animation_generation_dashboard()
-    elif st.session_state.search_listen_notes_dashboard:
-        listen_notes_dashboard()
-    elif st.session_state.selected_listen_notes_result:
-        listen_notes_processing_dashboard()
+    #elif st.session_state.search_listen_notes_dashboard:
+    #    listen_notes_dashboard()
+    #elif st.session_state.selected_listen_notes_result:
+    #    listen_notes_processing_dashboard()
     elif st.session_state.set_email_verification_flag:
         email_verification_dashboard()
     else:
