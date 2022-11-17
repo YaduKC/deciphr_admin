@@ -4,10 +4,10 @@ import requests
 from app import header
 
 base_url = "https://api.deciphr.ai"
-staging_url = "http://13.210.61.239:9999"
+staging_url = "http://3.219.123.15:9999"
 
 def login(email: str, password: str):
-    url = f"{base_url}/login"
+    url = f"{staging_url}/login"
     data = {
         "email": email,
         "password": password
@@ -17,7 +17,7 @@ def login(email: str, password: str):
     return response.json()
 
 def get_user_transcripts(token):
-    url = f"{base_url}/up/all"
+    url = f"{staging_url}/up/all"
     headers = {
         "Authorization": f"Bearer {token}"
     }
@@ -25,7 +25,7 @@ def get_user_transcripts(token):
     return response.json()
 
 def get_user_audio(token):
-    url = f"{base_url}/up/all-audio"
+    url = f"{staging_url}/up/all-audio"
     headers = {
         "Authorization": f"Bearer {token}"
     }
@@ -33,7 +33,7 @@ def get_user_audio(token):
     return response.json()
 
 def get_file_data(token, file_id):
-    url = f"{base_url}/up/details/{file_id}"
+    url = f"{staging_url}/up/details/{file_id}"
     headers = {
         "Authorization": f"Bearer {token}"
     }
@@ -57,7 +57,7 @@ def search_listennotes(query, sort_by, type_, min_length, max_len, genre, publis
     return response.json()
 
 def send_email_verification(email, token):
-    url = f"{base_url}/signup/resend-verification-email"
+    url = f"{staging_url}/signup/resend-verification-email"
     headers = {
         "Authorization": f"Bearer {token}"
     }
@@ -84,6 +84,14 @@ def prospective_user_process(file_name, start_timestamp, end_timestamp, audio_ur
 
 def get_prospective_process_status(file_id, token):
     url = f"{staging_url}/up/details/{file_id}"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+def get_user_records(token):
+    url = f"{staging_url}/admin/get_user_records"
     headers = {
         "Authorization": f"Bearer {token}"
     }

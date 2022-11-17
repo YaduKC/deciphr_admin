@@ -112,6 +112,15 @@ if "prospective_process_status" not in st.session_state:
 if "prospective_process_id" not in st.session_state:
     st.session_state.prospective_process_id = None
     
+if "user_records" not in st.session_state:
+    st.session_state.user_records = None
+    
+if "last_day_new_users" not in st.session_state:
+    st.session_state.last_day_new_users = None
+    
+if "verified_users" not in st.session_state:
+    st.session_state.verified_users = None
+    
 listen_notes_data = namedtuple('listen_notes_data', ['query', 'sort_by', 'type_', 'min_len', 'max_len', 'genre', 'published_before', 'publised_after', 'only_in'])
 
     
@@ -147,6 +156,7 @@ def login_user(email, password):
             st.session_state.user_email = response['user']['email']
             st.session_state.user_id = response['user']['localId']
             st.session_state.logged_in_flag = True
+            #get_user_records()
             st.success("Logged in!")
             st.info("Welcome, {}!".format(st.session_state.display_name))
         else:
@@ -161,11 +171,37 @@ def logout_user():
 def set_email_verification_flag():
     st.session_state.set_email_verification_flag = True
     
+def get_user_records():
+    st.session_state.user_records = deciphr.get_user_records(st.session_state.token)
+    
+def get_new_user_24h():
+    #Get current time in unix
+    curr_unix = datetime.datetime.now().timestamp()
+    # subtract 24 hours from curr_unix
+    last_day_unix = curr_unix - 86400
+    last_day_unix = int(last_day_unix * 1000)
+    user_data = st.session_state.user_records['data']
+    st.session_state.last_day_new_users = [user for user in user_data if user['account_creation_time'] > last_day_unix]
+    
+def get_verified_users():
+    user_data = st.session_state.user_records['data']
+    st.session_state.verified_users = [user for user in user_data if user['email_verified'] == True]
             
 def dashboard():
     st.title("Dashboard")
-    # st.button("Logout", on_click=logout_user)
+    # get_new_user_24h()
+    # get_verified_users()
+    # Show Metrics
     st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    # with st.container():
+    #     num_new_users = len(st.session_state.last_day_new_users)
+    #     num_all_users = len(st.session_state.user_records['data'])
+    #     num_verified_users = len(st.session_state.verified_users)
+    #     cols = st.columns([1,1])
+    #     cols[0].metric(label="Users", value=num_all_users, delta=num_new_users, help="Total number of users vs new users in the last 24 hours")
+    #     cols[1].metric(label="Verified Users", value=num_all_users, delta=num_verified_users, help="Total number of users vs Total number of verified users")
+    # # st.button("Logout", on_click=logout_user)
+    # st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
     st.subheader("Your Transcripts")
     
     with st.sidebar:
@@ -173,11 +209,11 @@ def dashboard():
         st.button("1: Image Generation", on_click=set_generate_image_flag)
         st.button("2: Animation", on_click=set_generate_animation_flag)
         st.write("---")
-        #st.header("Prospective User")
-        #st.button("1: Search ListenNotes", on_click=set_search_listen_notes_flag)
-        #st.write("---")
-        st.header("Admin")
-        st.button("Email Verification", on_click=set_email_verification_flag)
+        # st.header("Prospective User")
+        # st.button("1: Search ListenNotes", on_click=set_search_listen_notes_flag)
+        # st.write("---")
+        # st.header("Admin")
+        # st.button("Email Verification", on_click=set_email_verification_flag)
     
     n = 4
     user_transcripts = deciphr.get_user_transcripts(st.session_state.token)
@@ -261,12 +297,17 @@ def image_generation_dashboard():
     st.write("---")
     
     prompt = st.text_area("Enter Your Prompt Here", height=150, value="A grand city in the year 2100, atmospheric, hyper realistic, 8k, epic composition, cinematic, octane render, artstation landscape vista photography by Carr Clifton & Galen Rowell, 16K resolution, Landscape veduta photo by Dustin Lefevre & tdraw, 8k resolution, detailed landscape painting by Ivan Shishkin, DeviantArt, Flickr, rendered in Enscape, Miyazaki, Nausicaa Ghibli, Breath of The Wild, 4k detailed post processing, artstation, rendering by octane, unreal engine")
+    # init_image = st.text_input("Enter image url to perform Image to Image generation")
+    init_image = None
     if st.button("Submit"):
         if not prompt:
             st.error("Please enter a prompt.")
         else:
             with st.spinner('Processing Prompt...'):
-                res = replicate.generate_image(prompt)
+                if init_image:
+                    res = replicate.image_to_image(prompt, init_image)
+                else:
+                    res = replicate.generate_image(prompt)
                 st.session_state.curr_promt_image = res
     if st.session_state.curr_promt_image:
         st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
@@ -376,9 +417,15 @@ def view_file():
         st.subheader("Transcript")
         download_transcript_contents = ""
         with st.expander("Transcript"):
-            for t in file_data['es_doc']['display_transcript']:
-                st.write(t)
-                download_transcript_contents += t + "\n\n"
+            try:
+                for t in file_data['es_doc']['display_transcript']:
+                    line = f"{t['timestamp']} {t['speaker']}: {t['text']}"
+                    st.caption(line)
+                    download_transcript_contents += line + "\n\n"
+            except:
+                for t in file_data['es_doc']['display_transcript']:
+                    st.caption(t)
+                    download_transcript_contents += t + "\n\n"
         st.download_button('Download Transcript', download_transcript_contents, '{}_Transcript.txt'.format(file_data['fb_doc']['title']))
         st.write("---")
         st.subheader("Insights")
@@ -393,16 +440,19 @@ def view_file():
         st.subheader("Key Quotes")
         st.caption("Note! These quotes are extracted using the current production model. Click on the \'Generate\' button below to generate new quotes using upgraded pipeline.")
         for q in file_data['es_doc']['key_quotes']:
-            st.info(q)
+            if type(q) == list:
+                st.info(q[1])
+            else:
+                st.info(q)
 
-        if st.button("Generate"):
-            st.write("---")
-            if st.session_state.curr_file_quotes is None:
-                with st.spinner("Extracting new quotes..."):
-                    quotes = deciphr.get_quotes(st.session_state.token, st.session_state.curr_file_id)
-                    st.session_state.curr_file_quotes = quotes
-                    st.success("Quotes generated!")
-                    st.balloons()
+        # if st.button("Generate"):
+        #     st.write("---")
+        #     if st.session_state.curr_file_quotes is None:
+        #         with st.spinner("Extracting new quotes..."):
+        #             quotes = deciphr.get_quotes(st.session_state.token, st.session_state.curr_file_id)
+        #             st.session_state.curr_file_quotes = quotes
+        #             st.success("Quotes generated!")
+        #             st.balloons()
 
         if st.session_state.curr_file_quotes is not None:
             st.write("---")
@@ -627,10 +677,10 @@ if __name__ == "__main__":
         image_generation_dashboard()
     elif st.session_state.animation_generation_dashboard:
         animation_generation_dashboard()
-    #elif st.session_state.search_listen_notes_dashboard:
-    #    listen_notes_dashboard()
-    #elif st.session_state.selected_listen_notes_result:
-    #    listen_notes_processing_dashboard()
+    elif st.session_state.search_listen_notes_dashboard:
+        listen_notes_dashboard()
+    elif st.session_state.selected_listen_notes_result:
+        listen_notes_processing_dashboard()
     elif st.session_state.set_email_verification_flag:
         email_verification_dashboard()
     else:
