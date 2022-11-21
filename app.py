@@ -432,6 +432,11 @@ def view_file():
                 for t in file_data['es_doc']['display_transcript']:
                     st.caption(t)
                     download_transcript_contents += t + "\n\n"
+        insights_download_contents = ""
+        for i in file_data['es_doc']['insight']:
+            insights_download_contents += i['timestamp']+" :"+ i['summary'] + "\n\n"
+            
+        download_transcript_contents = file_data['fb_doc']['title'] + "\n\n" +"ABSTRACT"+"\n\n" +file_data['es_doc']['abstract'] +"\n\n"+"TIMESTAMPS"+"\n\n"+insights_download_contents+"\n\n"+ "TRANSCRIPT"+"\n\n"+download_transcript_contents
         with st.container():
             cols = st.columns([1,1,1])
             cols[0].download_button('Download Transcript .txt', download_transcript_contents, '{}_Transcript.txt'.format(file_data['fb_doc']['title']))
