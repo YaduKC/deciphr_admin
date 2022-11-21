@@ -120,6 +120,12 @@ if "last_day_new_users" not in st.session_state:
     
 if "verified_users" not in st.session_state:
     st.session_state.verified_users = None
+
+if "download_content" not in st.session_state:
+    st.session_state.download_content = None
+    
+if "download_format" not in st.session_state:
+    st.session_state.download_format = None
     
 listen_notes_data = namedtuple('listen_notes_data', ['query', 'sort_by', 'type_', 'min_len', 'max_len', 'genre', 'published_before', 'publised_after', 'only_in'])
 
@@ -426,7 +432,16 @@ def view_file():
                 for t in file_data['es_doc']['display_transcript']:
                     st.caption(t)
                     download_transcript_contents += t + "\n\n"
-        st.download_button('Download Transcript', download_transcript_contents, '{}_Transcript.txt'.format(file_data['fb_doc']['title']))
+        with st.container():
+            cols = st.columns([1,1,1])
+            cols[0].download_button('Download Transcript .txt', download_transcript_contents, '{}_Transcript.txt'.format(file_data['fb_doc']['title']))
+            cols[1].button('Download Transcript .docx', on_click=download_as_format, args=(st.session_state.curr_file_id, 'docx', st.session_state.token))
+            cols[2].button('Download Transcript .pdf', on_click=download_as_format, args=(st.session_state.curr_file_id, 'pdf', st.session_state.token))
+
+        if st.session_state.download_content:
+            st.info("Your file is ready. Click the button below to download.")
+            st.download_button('Download Transcript', st.session_state.download_content, '{}_Transcript.{}'.format(file_data['fb_doc']['title'], st.session_state.download_format))
+        
         st.write("---")
         st.subheader("Insights")
         with st.expander("Insights"):
@@ -461,7 +476,12 @@ def view_file():
                 st.info("\""+nq[1]+"\"")
         st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
 
+def download_as_format(file_id, format, token):
+    with st.spinner("Generating {} file...".format(format)):
+        st.session_state.download_content = deciphr.download_file(file_id, format, token)
+        st.session_state.download_format = format
         
+   
 def listen_notes_dashboard():
     st.write("---")
     st.info("Click here to go back to your dashboard.")

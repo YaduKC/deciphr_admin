@@ -97,3 +97,11 @@ def get_user_records(token):
     }
     response = requests.get(url, headers=headers)
     return response.json()
+
+def download_file(file_id, format, token):
+    url = f"{staging_url}/up/download/{file_id}/{format}"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.get(url, headers=headers)
+    return response.content
