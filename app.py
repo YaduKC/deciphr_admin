@@ -1,3 +1,4 @@
+import base64
 import io
 import time
 import streamlit as st
@@ -162,7 +163,6 @@ def login_user(email, password):
             st.session_state.user_email = response['user']['email']
             st.session_state.user_id = response['user']['localId']
             st.session_state.logged_in_flag = True
-            #get_user_records()
             st.success("Logged in!")
             st.info("Welcome, {}!".format(st.session_state.display_name))
         else:
@@ -176,38 +176,10 @@ def logout_user():
     
 def set_email_verification_flag():
     st.session_state.set_email_verification_flag = True
-    
-def get_user_records():
-    st.session_state.user_records = deciphr.get_user_records(st.session_state.token)
-    
-def get_new_user_24h():
-    #Get current time in unix
-    curr_unix = datetime.datetime.now().timestamp()
-    # subtract 24 hours from curr_unix
-    last_day_unix = curr_unix - 86400
-    last_day_unix = int(last_day_unix * 1000)
-    user_data = st.session_state.user_records['data']
-    st.session_state.last_day_new_users = [user for user in user_data if user['account_creation_time'] > last_day_unix]
-    
-def get_verified_users():
-    user_data = st.session_state.user_records['data']
-    st.session_state.verified_users = [user for user in user_data if user['email_verified'] == True]
             
 def dashboard():
     st.title("Dashboard")
-    # get_new_user_24h()
-    # get_verified_users()
-    # Show Metrics
     st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
-    # with st.container():
-    #     num_new_users = len(st.session_state.last_day_new_users)
-    #     num_all_users = len(st.session_state.user_records['data'])
-    #     num_verified_users = len(st.session_state.verified_users)
-    #     cols = st.columns([1,1])
-    #     cols[0].metric(label="Users", value=num_all_users, delta=num_new_users, help="Total number of users vs new users in the last 24 hours")
-    #     cols[1].metric(label="Verified Users", value=num_all_users, delta=num_verified_users, help="Total number of users vs Total number of verified users")
-    # # st.button("Logout", on_click=logout_user)
-    # st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
     st.subheader("Your Transcripts")
     
     with st.sidebar:
@@ -303,6 +275,10 @@ def image_generation_dashboard():
     st.write("---")
     
     prompt = st.text_area("Enter Your Prompt Here", height=150, value="A grand city in the year 2100, atmospheric, hyper realistic, 8k, epic composition, cinematic, octane render, artstation landscape vista photography by Carr Clifton & Galen Rowell, 16K resolution, Landscape veduta photo by Dustin Lefevre & tdraw, 8k resolution, detailed landscape painting by Ivan Shishkin, DeviantArt, Flickr, rendered in Enscape, Miyazaki, Nausicaa Ghibli, Breath of The Wild, 4k detailed post processing, artstation, rendering by octane, unreal engine")
+    st.subheader("Hyper Parameters")
+    width = st.selectbox("Width", [512, 768], index = 0)
+    height = st.selectbox("Height", [512, 768], index = 0)
+    inference_step = st.number_input("Number of Inference Steps", value=50, min_value=50, max_value=200, help="Number of denoising steps. Higher values will result in more detailed images, but will take longer to generate.")
     # init_image = st.text_input("Enter image url to perform Image to Image generation")
     init_image = None
     if st.button("Submit"):
@@ -313,7 +289,7 @@ def image_generation_dashboard():
                 if init_image:
                     res = replicate.image_to_image(prompt, init_image)
                 else:
-                    res = replicate.generate_image(prompt)
+                    res = replicate.generate_image_v2(prompt, width, height, inference_step)
                 st.session_state.curr_promt_image = res
     if st.session_state.curr_promt_image:
         st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
@@ -330,6 +306,12 @@ def image_generation_dashboard():
                                         file_name="deciphr_stable_diffusion.png",
                                         mime="image/png"
                                     )
+            # if cols[1].button("Upscale"):
+            #     with st.spinner('Upscaling...'):
+            #         im_b64 = base64.b64encode(response.content).decode("utf8")
+            #         res = replicate.upscale_image(im_b64)
+            #     cols[1].image(res)
+            
             cols[2].write()
         st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
         
@@ -439,12 +421,12 @@ def view_file():
         download_transcript_contents = file_data['fb_doc']['title'] + "\n\n" +"ABSTRACT"+"\n\n" +file_data['es_doc']['abstract'] +"\n\n"+"TIMESTAMPS"+"\n\n"+insights_download_contents+"\n\n"+ "TRANSCRIPT"+"\n\n"+download_transcript_contents
         with st.container():
             cols = st.columns([1,1,1])
-            cols[0].download_button('Download Transcript .txt', download_transcript_contents, '{}_Transcript.txt'.format(file_data['fb_doc']['title']))
+            cols[0].button('Download Transcript .txt', on_click=download_as_format, args=(st.session_state.curr_file_id, 'txt', st.session_state.token))
             cols[1].button('Download Transcript .docx', on_click=download_as_format, args=(st.session_state.curr_file_id, 'docx', st.session_state.token))
             cols[2].button('Download Transcript .pdf', on_click=download_as_format, args=(st.session_state.curr_file_id, 'pdf', st.session_state.token))
 
         if st.session_state.download_content:
-            st.info("Your file is ready. Click the button below to download.")
+            st.info(f"Your {st.session_state.download_format} file is ready. Click the button below to download.")
             st.download_button('Download Transcript', st.session_state.download_content, '{}_Transcript.{}'.format(file_data['fb_doc']['title'], st.session_state.download_format))
         
         st.write("---")
