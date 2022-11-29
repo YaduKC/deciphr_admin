@@ -278,7 +278,7 @@ def image_generation_dashboard():
     st.subheader("Hyper Parameters")
     width = st.selectbox("Width", [512, 768], index = 0)
     height = st.selectbox("Height", [512, 768], index = 0)
-    inference_step = st.number_input("Number of Inference Steps", value=50, min_value=50, max_value=200, help="Number of denoising steps. Higher values will result in more detailed images, but will take longer to generate.")
+    inference_step = st.number_input("Number of Inference Steps", value=150, min_value=50, max_value=300, help="Number of denoising steps. Higher values will result in more detailed images, but will take longer to generate.")
     # init_image = st.text_input("Enter image url to perform Image to Image generation")
     init_image = None
     if st.button("Submit"):
