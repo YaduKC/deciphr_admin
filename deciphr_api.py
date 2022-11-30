@@ -105,3 +105,16 @@ def download_file(file_id, format, token):
     }
     response = requests.get(url, headers=headers)
     return response.content
+
+def submit_review(key, token):
+    url = "http://3.219.123.15:9000/admin/submit_review"
+    data = {
+        "key": key
+    }
+    response = requests.post(url, json=data)
+    return response.json()
+
+def get_review_results():
+    url = "http://3.219.123.15:9000/admin/get_review"
+    response = requests.get(url)
+    return response.json()
