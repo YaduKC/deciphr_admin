@@ -1,4 +1,3 @@
-import base64
 import io
 import time
 import streamlit as st
@@ -9,10 +8,8 @@ from genre import genre as all_genres
 import datetime
 from collections import namedtuple
 import re
-import davinci
-import random
-import pandas as pd
-import altair as alt
+from streamlit_lottie import st_lottie
+import json
 
 st.set_page_config(page_title="Deciphr Admins", page_icon=":rocket:")
 
@@ -132,16 +129,23 @@ if "download_content" not in st.session_state:
 if "download_format" not in st.session_state:
     st.session_state.download_format = None
     
-if "set_review_flag" not in st.session_state:
-    st.session_state.set_review_flag = None
+if "replicate_data" not in st.session_state:
+    st.session_state.replicate_data = None
     
-if "review_data" not in st.session_state:
-    st.session_state.review_data = davinci.data
+if "replicate_video_buffer" not in st.session_state:
+    st.session_state.replicate_video_buffer = {}
     
     
 listen_notes_data = namedtuple('listen_notes_data', ['query', 'sort_by', 'type_', 'min_len', 'max_len', 'genre', 'published_before', 'publised_after', 'only_in'])
 
-    
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+lottie_url = "https://assets1.lottiefiles.com/packages/lf20_9zddpfah.json"
+lottie_json = load_lottieurl(lottie_url)
 
 def header():
     st.title("")
@@ -193,6 +197,9 @@ def set_review_flag():
             
 def dashboard():
     st.title("Dashboard")
+    st.info("Hi, \n Just wanted to say a big thank you for taking the time to participate in the review poll.")
+    st.info("UPDATES:")
+    st.info("User Generated Image and Animation files are now saved in the database. You can view and download them from the 'Image Generation' or 'Animation' tab.")
     st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
     st.subheader("Your Transcripts")
     
@@ -206,7 +213,7 @@ def dashboard():
         # st.write("---")
         # st.header("Admin")
         # st.button("Email Verification", on_click=set_email_verification_flag)
-        st.button("Review", on_click=set_review_flag)
+        # st.button("Review", on_click=set_review_flag)
     
     n = 4
     user_transcripts = deciphr.get_user_transcripts(st.session_state.token)
@@ -288,7 +295,7 @@ def image_generation_dashboard():
     st.caption('- Name Specific Artists to Guide Stable Diffusion.')
     st.caption('- Reference The Example Prompt given Below.')
     st.write("---")
-    
+    st.session_state.replicate_data = deciphr.get_replicate_data(st.session_state.token)['data']
     prompt = st.text_area("Enter Your Prompt Here", height=150, value="A grand city in the year 2100, atmospheric, hyper realistic, 8k, epic composition, cinematic, octane render, artstation landscape vista photography by Carr Clifton & Galen Rowell, 16K resolution, Landscape veduta photo by Dustin Lefevre & tdraw, 8k resolution, detailed landscape painting by Ivan Shishkin, DeviantArt, Flickr, rendered in Enscape, Miyazaki, Nausicaa Ghibli, Breath of The Wild, 4k detailed post processing, artstation, rendering by octane, unreal engine")
     st.subheader("Hyper Parameters")
     width = st.selectbox("Width", [512, 768], index = 0)
@@ -306,6 +313,8 @@ def image_generation_dashboard():
                 else:
                     res = replicate.generate_image_v2(prompt, width, height, inference_step)
                 st.session_state.curr_promt_image = res
+                deciphr.save_replicate_image(res, st.session_state.token, prompt)
+                st.session_state.replicate_data = deciphr.get_replicate_data(st.session_state.token)['data']
     if st.session_state.curr_promt_image:
         st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
         with st.container():
@@ -321,14 +330,40 @@ def image_generation_dashboard():
                                         file_name="deciphr_stable_diffusion.png",
                                         mime="image/png"
                                     )
-            # if cols[1].button("Upscale"):
-            #     with st.spinner('Upscaling...'):
-            #         im_b64 = base64.b64encode(response.content).decode("utf8")
-            #         res = replicate.upscale_image(im_b64)
-            #     cols[1].image(res)
-            
             cols[2].write()
         st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    
+    st.header("Your Files")
+    st.write("---")
+    with st.container():
+        cols = st.columns([1,1])
+        curr_col = 0
+        if 'images' in st.session_state.replicate_data:
+            for index,item in enumerate(st.session_state.replicate_data['images']):
+                with cols[curr_col].expander(f"Image {index+1}", expanded=True):
+                    date_time = datetime.datetime.fromtimestamp(item['unix']/1000)
+                    date_time = date_time.strftime("%d-%m-%Y %H:%M")
+                    st.image(item['url'])
+                    st.write("---")
+                    st.caption(f"Date: {date_time}")
+                    st.caption(f"Prompt: {item['prompt']}")
+                    st.write("---")
+                    response = requests.get(item['url'])
+                    image_bytes = io.BytesIO(response.content)
+                    st.download_button(
+                                        label="Download Image",
+                                        data=image_bytes,
+                                        file_name=f"deciphr_stable_diffusion_{index}.png",
+                                        mime="image/png"
+                                    )
+                curr_col += 1
+                if curr_col == 2:
+                    curr_col = 0
+        else:
+            st.info("Generate Images to see them here.")
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    
+                
         
 def animation_generation_dashboard():
     st.write("---")
@@ -344,49 +379,78 @@ def animation_generation_dashboard():
     st.write('- End prompts with \'trending on ArtStation\' this seems to make the results better in my opinion(doesn\'t always).')
     st.write('- Reference The Example Prompt given Below.')
     st.write("---")
+    st.session_state.replicate_data = deciphr.get_replicate_data(st.session_state.token)['data']
     prompt = st.text_area("Enter Your Prompt Here", height=150, value="0: a beautiful apple, trending on Artstation | 33: a beautiful banana, trending on Artstation | 66: a beautiful coconut, trending on Artstation | 100: a beautiful durian, trending on Artstation")
     max_frames = st.number_input("Number of Frames", min_value=100, max_value=500, value=100)
     fps = st.slider("FPS", min_value=10, max_value=30, value=15)
     st.write("---")
-    if st.button("Submit") or st.session_state.animation_get_url:
+    if st.button("Submit"):
         if not prompt:
             st.error("Please enter a prompt.")
         else:
             status_text = 'Processing Prompt...'
             with st.spinner(status_text):
-                st.session_state.animation_get_url = replicate.generate_video(prompt, max_frames, fps) if not st.session_state.animation_get_url else st.session_state.animation_get_url
+                st.session_state.animation_get_url = replicate.generate_video(prompt, max_frames, fps)
+                deciphr.save_replicate_video(st.session_state.animation_get_url, st.session_state.token, prompt, max_frames)
+                st.session_state.replicate_data = deciphr.get_replicate_data(st.session_state.token)['data']
                 status, frames_complete, output, logs = replicate.video_results(st.session_state.animation_get_url)
-                my_bar = st.progress(0)
-                while status != "succeeded":
-                    time.sleep(4)
-                    status, frames_complete, output, logs = replicate.video_results(st.session_state.animation_get_url)
-                    my_bar.progress(int((frames_complete/max_frames)*100))
-                    if status == "failed":
-                        st.error("Error")
-                        st.write(logs)
-                        break
-                st.session_state.animation_get_url = None
-                st.session_state.curr_promt_video = output
-    if st.session_state.curr_promt_video:
-        st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
-        with st.container():
-            cols = st.columns([1,5,1])
-            cols[0].write()
-            cols[1].video(st.session_state.curr_promt_video)
-            
-            # Download video
-            response = requests.get(st.session_state.curr_promt_video)
-            image_bytes = io.BytesIO(response.content)
-            btn = cols[1].download_button(
-                                        label="Download Video",
-                                        data=image_bytes,
-                                        file_name="deciphr_deforum_stable_diffusion.mp4",
-                                        mime="video/mp4"
-                                    )
-            cols[2].write()
-        st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
     
-
+    st.header("Your Files")
+    st.write("---")
+    with st.container():
+        cols = st.columns([1,1])
+        curr_col = 0
+        if 'videos' in st.session_state.replicate_data:
+            for index,item in enumerate(st.session_state.replicate_data['videos']):
+                with cols[curr_col].expander(f"Video {index+1}", expanded=True):
+                    date_time = datetime.datetime.fromtimestamp(item['unix']/1000)
+                    date_time = date_time.strftime("%d-%m-%Y %H:%M")
+                    if item['url'] not in st.session_state.replicate_video_buffer:
+                        status, frames_complete, output, logs = replicate.video_results(item['url'])
+                        if status == "succeeded":
+                            st.session_state.replicate_video_buffer[item['url']] = output
+                    else:
+                        output = st.session_state.replicate_video_buffer[item['url']]
+                        status = "succeeded"
+                    if status == "succeeded":
+                        st.video(output)
+                    else:
+                        st.header(status.upper())
+                        st_lottie(lottie_json)
+                        my_bar = st.progress(0)
+                        while status != "succeeded":
+                            time.sleep(4)
+                            status, frames_complete, output, logs = replicate.video_results(item['url'])
+                            my_bar.progress(int((frames_complete/item['max_frames'])*100))
+                            if status == "failed":
+                                st.error("Error")
+                                break
+                            if status == "succeeded":
+                                st.session_state.replicate_video_buffer[item['url']] = output
+                                st.experimental_rerun()
+                    st.write("---")
+                    st.caption(f"Date: {date_time}")
+                    st.caption(f"Prompt: {item['prompt']}")
+                    st.write("---")
+                    if status == "succeeded":
+                        response = requests.get(output)
+                        image_bytes = io.BytesIO(response.content)
+                        st.download_button(
+                                            label="Download Video",
+                                            data=image_bytes,
+                                            file_name=f"deciphr_stable_diffusion_{index}.mp4",
+                                            mime="video/mp4",
+                                            key=index
+                                        )
+                curr_col += 1
+                if curr_col == 2:
+                    curr_col = 0
+        else:
+            st.info("Generate Videos to see them here.")
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    
+    
 def set_curr_vewing_file_id(id):
     st.session_state.curr_file_id = id
     
@@ -678,46 +742,6 @@ def send_email_verification(email, token):
     resp = deciphr.send_email_verification(email, token)
     st.success(resp['message'])
     
-def review_dashboard():
-    st.write("---")
-    st.info("Click here to go back")
-    st.button("Back", on_click=reset_file_attributes)
-    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
-    st.info("Select the best summary for the conversation displayed below.")
-    st.info("NOTE! Once a summary is selected, the selection will be saved and cannot be changed.")
-    rand = random.choice(st.session_state.review_data)
-    with st.expander("Segment", expanded=True):
-        st.caption(rand['segment'])
-    st.write("---")
-    d3 = rand['davinci_003_prompt_1']
-    d3 = d3.replace("\"", "")
-    st.checkbox(f"{rand['davinci_002_prompt_1']}", on_change=deciphr.submit_review, args=('davinci_002_prompt_1', st.session_state.token), key=1)
-    st.checkbox(f"{rand['davinci_002_prompt_2']}", on_change=deciphr.submit_review, args=('davinci_002_prompt_2', st.session_state.token), key=2)
-    st.checkbox(d3, on_change=deciphr.submit_review, args=('davinci_003_prompt_1', st.session_state.token), key=3)
-    st.checkbox(f"{rand['davinci_003_prompt_2']}", on_change=deciphr.submit_review, args=('davinci_003_prompt_2', st.session_state.token), key=4)
-    st.write("---")
-    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
-    if st.session_state.user_email == "yadukrishnachoyi@gmail.com":
-        st.header("Results")
-        data = deciphr.get_review_results()
-        source = pd.DataFrame({
-            'a': ['002_p1', '002_p2', '003_p1', '003_p2'],
-            'b': [data['data']['davinci_002_prompt_1'],
-                  data['data']['davinci_002_prompt_2'],
-                  data['data']['davinci_003_prompt_1'],
-                  data['data']['davinci_003_prompt_2']]
-        })
-
-        altair_chart = alt.Chart(source).mark_bar().encode(
-            x='a',
-            y='b',
-            color='a'
-        )
-        st.altair_chart(altair_chart, use_container_width=True)
-        st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
-
-    
-    
     
 def reset_file_attributes():
     st.session_state.curr_file_id = None
@@ -727,7 +751,6 @@ def reset_file_attributes():
     st.session_state.animation_generation_dashboard = None
     st.session_state.search_listen_notes_dashboard = None
     st.session_state.set_email_verification_flag = None
-    st.session_state.set_review_flag = None
     
 
 if __name__ == "__main__":
@@ -746,7 +769,5 @@ if __name__ == "__main__":
         listen_notes_processing_dashboard()
     elif st.session_state.set_email_verification_flag:
         email_verification_dashboard()
-    elif st.session_state.set_review_flag:
-        review_dashboard()
     else:
         dashboard()

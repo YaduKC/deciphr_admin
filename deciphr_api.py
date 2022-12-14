@@ -118,3 +118,39 @@ def get_review_results():
     url = "http://3.219.123.15:9000/admin/get_review"
     response = requests.get(url)
     return response.json()
+
+def save_replicate_image(image_url, token, prompt):
+    url = "http://3.219.123.15:9000/admin/save_streamlit_media/image"
+    data = {
+        "url": image_url,
+        "prompt": prompt
+    }
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.post(url, json=data, headers=headers)
+    return response.json()
+
+def get_replicate_data(token):
+    url = "http://3.219.123.15:9000/admin/get_streamlit_media"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.get(url, headers=headers)
+    try:
+        return response.json()
+    except:
+        return {'data':{}}
+
+def save_replicate_video(video_url, token, prompt, max_frames):
+    url = "http://3.219.123.15:9000/admin/save_streamlit_media/video"
+    data = {
+        "url": video_url,
+        "prompt": prompt,
+        "max_frames": max_frames
+    }
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.post(url, json=data, headers=headers)
+    return response.json()
