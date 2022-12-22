@@ -1,0 +1,6 @@
+__pycache__/app.cpython-39.pyc
+.streamlit/secrets.toml
+__pycache__/deciphr_api.cpython-39.pyc
+__pycache__/replicate_api.cpython-39.pyc
+__pycache__/fonts.cpython-39.pyc
+__pycache__/genre.cpython-39.pyc

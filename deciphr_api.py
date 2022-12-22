@@ -1,6 +1,7 @@
+from datetime import timedelta
 from urllib import response
 import requests
-
+import streamlit as st
 from app import header
 
 base_url = "https://api.deciphr.ai"
@@ -154,3 +155,110 @@ def save_replicate_video(video_url, token, prompt, max_frames):
     }
     response = requests.post(url, json=data, headers=headers)
     return response.json()
+
+def get_transcript(id: str):
+    results_endpoint = "https://api.assemblyai.com/v2/transcript/{}".format(id)
+    headers = {
+        "Authorization": st.secrets['ASSEMBLYAI_KEY']
+    }
+
+    response = requests.get(results_endpoint, headers=headers)
+    res = response.json()
+    return res
+
+def generate_audiogram(quotes, font, font_color, audio_url, video_url, token, audio_ext, font_size):
+    url = "http://3.219.123.15:9999/admin/audiogram"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    
+    data = {
+        "quotes": quotes,
+        "font": font,
+        "font_color": font_color,
+        "audio_url": audio_url,
+        "video_url": video_url,
+        "audio_ext": audio_ext,
+        "font_size": font_size
+    }
+    response = requests.post(url, json=data, headers=headers)
+    # Read response body as bytes
+    res = response.content
+    return res
+
+def process_into_smaller_chunks_for_editing(data, pause_threshold=50):
+    """Divides transcript output from assembly.ai into smaller chunks for editing.
+    Division of chunks is based on speaker change, audio pauses, and audio breaks.
+    Change pause threshold to vary chunk size.
+    """
+    utt = data['utterances']
+    text = data['text']
+    transcript = []
+    for u in utt:
+        speaker_tag = u['speaker']
+        words = u['words']
+        curr_utt = []
+        for i in range(len(words)):
+            if i == 0:
+                curr_utt.append(words[i])
+                continue
+            else:
+                pause_time = words[i]['start'] - words[i-1]['end']
+                text = [w['text'] for w in curr_utt]
+                text = " ".join(text)
+                if pause_time > pause_threshold and ("." in words[i-1]['text'] or "?" in words[i-1]['text'] or "!" in words[i-1]['text']) and len(text) > 200:
+                    text = [w['text'] for w in curr_utt]
+                    text = " ".join(text)
+                    start_time = curr_utt[0]['start']
+                    timestamp = str(timedelta(seconds=int(start_time/1000)))
+                    curr_utt_data = {
+                        "speaker": speaker_tag,
+                        "text": text,
+                        "start": timestamp
+                    }
+                    text = [w['text'] for w in curr_utt]
+                    text = " ".join(text)
+                    start_time = curr_utt[0]['start']
+                    end_time = curr_utt[-1]['end']
+                    start_timestamp = str(timedelta(seconds=int(start_time/1000)))
+                    end_timestamp = str(timedelta(seconds=int(end_time/1000)))
+                    formatted_curr_utt = []
+                    for c in curr_utt:
+                        c['start_timestamp'] = str(timedelta(seconds=int(c['start']/1000)))
+                        c['end_timestamp'] = str(timedelta(seconds=int(c['end']/1000)))
+                        formatted_curr_utt.append(c)
+                    curr_utt_data = {
+                        "speaker": speaker_tag,
+                        "text": text,
+                        "start_timestamp": start_timestamp,
+                        "start": start_time,
+                        "end_timestamp": end_timestamp,
+                        "end": end_time,
+                        "words": curr_utt
+                    }
+                    transcript.append(curr_utt_data)
+                    curr_utt = []
+                curr_utt.append(words[i])
+        if curr_utt:
+            text = [w['text'] for w in curr_utt]
+            text = " ".join(text)
+            start_time = curr_utt[0]['start']
+            end_time = curr_utt[-1]['end']
+            start_timestamp = str(timedelta(seconds=int(start_time/1000)))
+            end_timestamp = str(timedelta(seconds=int(end_time/1000)))
+            formatted_curr_utt = []
+            for c in curr_utt:
+                c['start_timestamp'] = str(timedelta(seconds=int(c['start']/1000)))
+                c['end_timestamp'] = str(timedelta(seconds=int(c['end']/1000)))
+                formatted_curr_utt.append(c)
+            curr_utt_data = {
+                "speaker": speaker_tag,
+                "text": text,
+                "start_timestamp": start_timestamp,
+                "start": start_time,
+                "end_timestamp": end_timestamp,
+                "end": end_time,
+                "words": curr_utt
+            }
+            transcript.append(curr_utt_data)
+    return transcript

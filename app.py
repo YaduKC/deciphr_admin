@@ -9,7 +9,9 @@ import datetime
 from collections import namedtuple
 import re
 from streamlit_lottie import st_lottie
+from streamlit_lottie import st_lottie_spinner
 import json
+from fonts import ALL_FONTS
 
 st.set_page_config(page_title="Deciphr Admins", page_icon=":rocket:")
 
@@ -135,6 +137,27 @@ if "replicate_data" not in st.session_state:
 if "replicate_video_buffer" not in st.session_state:
     st.session_state.replicate_video_buffer = {}
     
+if "set_audiogram_flag" not in st.session_state:
+    st.session_state.set_audiogram_flag = None
+    
+if "audiogram_transcript_file" not in st.session_state:
+    st.session_state.audiogram_transcript_file = None
+    
+if "audiogram_file_data" not in st.session_state:
+    st.session_state.audiogram_file_data = None
+    
+if "audiogram_chunked_transcript" not in st.session_state:
+    st.session_state.audiogram_chunked_transcript = None
+    
+if "selected_audiogram_utterances" not in st.session_state:
+    st.session_state.selected_audiogram_utterances = []
+    
+if "audiogram_video_url" not in st.session_state:
+    st.session_state.audiogram_video_url = None
+    
+if "audiogram_video_output" not in st.session_state:
+    st.session_state.audiogram_video_output = None
+    
     
 listen_notes_data = namedtuple('listen_notes_data', ['query', 'sort_by', 'type_', 'min_len', 'max_len', 'genre', 'published_before', 'publised_after', 'only_in'])
 
@@ -194,6 +217,9 @@ def set_email_verification_flag():
     
 def set_review_flag():
     st.session_state.set_review_flag = True
+    
+def set_audiogram_flag():
+    st.session_state.set_audiogram_flag = True
             
 def dashboard():
     st.title("Dashboard")
@@ -207,6 +233,7 @@ def dashboard():
         st.header("Miscaellaneous")
         st.button("1: Image Generation", on_click=set_generate_image_flag)
         st.button("2: Animation", on_click=set_generate_animation_flag)
+        st.button("3: Audiogram", on_click=set_audiogram_flag)
         st.write("---")
         # st.header("Prospective User")
         # st.button("1: Search ListenNotes", on_click=set_search_listen_notes_flag)
@@ -254,23 +281,23 @@ def dashboard():
                 index += 1
             st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
     
-    st.subheader("Listen Notes Audio Files")
-    prospective_files = [prospective_files[i * n:(i + 1) * n] for i in range((len(prospective_files) + n - 1) // n )]
-    for transcripts in prospective_files:
-        with st.container():
-            cols = st.columns([1,1,1,1])
-            index = 0
-            for transcript in transcripts:
-                try:
-                    title = (transcript['title'][0:15]+"...").replace(" ", "_")
-                except:
-                    title = "Untitled_Audio"
-                with cols[index].expander(title, expanded=True):
-                    st.write("Uploaded Date: ", transcript['display_datetime'])
-                    st.write("---")
-                    st.button("View File", key = transcript['id']+str(transcript['unix']), on_click=set_curr_vewing_file_id, args=(transcript['id'],))
-                index += 1
-            st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    # st.subheader("Listen Notes Audio Files")
+    # prospective_files = [prospective_files[i * n:(i + 1) * n] for i in range((len(prospective_files) + n - 1) // n )]
+    # for transcripts in prospective_files:
+    #     with st.container():
+    #         cols = st.columns([1,1,1,1])
+    #         index = 0
+    #         for transcript in transcripts:
+    #             try:
+    #                 title = (transcript['title'][0:15]+"...").replace(" ", "_")
+    #             except:
+    #                 title = "Untitled_Audio"
+    #             with cols[index].expander(title, expanded=True):
+    #                 st.write("Uploaded Date: ", transcript['display_datetime'])
+    #                 st.write("---")
+    #                 st.button("View File", key = transcript['id']+str(transcript['unix']), on_click=set_curr_vewing_file_id, args=(transcript['id'],))
+    #             index += 1
+    #         st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
 
             
 
@@ -751,8 +778,187 @@ def reset_file_attributes():
     st.session_state.animation_generation_dashboard = None
     st.session_state.search_listen_notes_dashboard = None
     st.session_state.set_email_verification_flag = None
+    st.session_state.set_audiogram_flag = None
     
 
+def set_file_for_audiogram(transcript_id):
+    st.session_state.audiogram_transcript_file = transcript_id
+
+def audiogram_dashboard():
+    st.write("---")
+    st.info("Click here to go back")
+    st.button("Back", on_click=reset_file_attributes)
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    st.title("Audiogram")
+    st.info("Audiograms can be generated for already transcribed audio files.")
+    user_audio = deciphr.get_user_audio(st.session_state.token)
+    if len(user_audio) == 0:
+        st.error("No audio files found. Please upload an audio file through app.deciphr.ai")
+    else:
+        st.info("Please select a file to proceed")
+        n = 4
+        user_audio_chunked = [user_audio[i * n:(i + 1) * n] for i in range((len(user_audio) + n - 1) // n )]
+        prospective_files = []
+        for transcripts in user_audio_chunked:
+            with st.container():
+                cols = st.columns([1,1,1,1])
+                index = 0
+                for transcript in transcripts:
+                    if "prospective" in transcript:
+                        prospective_files.append(transcript)
+                        continue
+                    try:
+                        title = (transcript['title'][0:15]+"...").replace(" ", "_")
+                    except:
+                        title = "Untitled_Audio"
+                    with cols[index].expander(title, expanded=True):
+                        st.write("Uploaded Date: ", transcript['display_datetime'])
+                        st.write("---")
+                        st.button("Select", key = transcript['id'], on_click=set_file_for_audiogram, args=(transcript['id'],))
+                    index += 1
+                st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+
+def reset_audiogram_transcript_id():
+    st.session_state.audiogram_transcript_file = None
+    st.session_state.audiogram_file_data = None
+    st.session_state.audiogram_chunked_transcript = None
+    st.session_state.selected_audiogram_utterances = []
+    
+def append_audiogram_utterance(chunk, remove=False):
+    if remove:
+        st.session_state.selected_audiogram_utterances.remove(chunk)
+    else:
+        st.session_state.selected_audiogram_utterances.append(chunk)
+        
+def set_audiogram_video(url):
+    st.session_state.audiogram_video_url = url
+
+def audiogram_editor():
+    st.write("---")
+    st.info("Click here to go back")
+    st.button("Back", on_click=reset_audiogram_transcript_id)
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    if st.session_state.audiogram_file_data is None:
+        st.session_state.audiogram_file_data = deciphr.get_file_data(st.session_state.token, st.session_state.audiogram_transcript_file)
+    file_data = st.session_state.audiogram_file_data
+    st.header(file_data['fb_doc']['title'])
+    st.caption(file_data['fb_doc']['display_datetime'])
+    st.write("---")
+    st.header("Abstract")
+    st.write(file_data['es_doc']['abstract'])
+    st.write("---")
+    if st.session_state.audiogram_chunked_transcript == None:
+        transcript = deciphr.get_transcript(file_data['fb_doc']['assembly_id'])
+        chunked_transcript = deciphr.process_into_smaller_chunks_for_editing(transcript)
+        st.session_state.audiogram_chunked_transcript = chunked_transcript
+    chunked_transcript = st.session_state.audiogram_chunked_transcript
+    proceed = False
+    if len(st.session_state.selected_audiogram_utterances) > 0:
+        proceed = st.button("Proceed")
+    if not proceed:
+        st.header("Select one or more utterances")
+        st.info(f"{len(st.session_state.selected_audiogram_utterances)} Selected")
+        for index,chunk in enumerate(chunked_transcript):
+            with st.expander(f"Utterance {index+1}", expanded=True):
+                st.caption(f"{chunk['start_timestamp']} Speaker: {chunk['speaker']}")
+                st.caption(chunk['text'])
+                if chunk in st.session_state.selected_audiogram_utterances:
+                    st.button("Deselect", key=index, on_click=append_audiogram_utterance, args=(chunk, True))
+                else:
+                    st.button("Select", key=index, on_click=append_audiogram_utterance, args=(chunk, ))
+    else:
+        st.header("Select a background video")
+        with st.container():
+            cols = st.columns([1,1])
+            curr_col = 0
+            st.session_state.replicate_data = deciphr.get_replicate_data(st.session_state.token)['data']
+            if 'videos' in st.session_state.replicate_data:
+                for index,item in enumerate(st.session_state.replicate_data['videos']):
+                    with cols[curr_col].expander(f"Video {index+1}", expanded=True):
+                        date_time = datetime.datetime.fromtimestamp(item['unix']/1000)
+                        date_time = date_time.strftime("%d-%m-%Y %H:%M")
+                        if item['url'] not in st.session_state.replicate_video_buffer:
+                            status, frames_complete, output, logs = replicate.video_results(item['url'])
+                            if status == "succeeded":
+                                st.session_state.replicate_video_buffer[item['url']] = output
+                        else:
+                            output = st.session_state.replicate_video_buffer[item['url']]
+                            status = "succeeded"
+                        if status == "succeeded":
+                            st.video(output)
+                        else:
+                            st.header(status.upper())
+                            st_lottie(lottie_json)
+                            my_bar = st.progress(0)
+                            while status != "succeeded":
+                                time.sleep(4)
+                                status, frames_complete, output, logs = replicate.video_results(item['url'])
+                                my_bar.progress(int((frames_complete/item['max_frames'])*100))
+                                if status == "failed":
+                                    st.error("Error")
+                                    break
+                                if status == "succeeded":
+                                    st.session_state.replicate_video_buffer[item['url']] = output
+                                    st.experimental_rerun()
+                        st.caption(f"Date: {date_time}")
+                        if status == "succeeded":
+                            st.button(label="Select", key=index, on_click=set_audiogram_video, args=(output,))
+                    curr_col += 1
+                    if curr_col == 2:
+                        curr_col = 0
+            else:
+                st.info("Generate Videos to see them here.")
+        st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+        
+def reset_audiogram_video():
+    st.session_state.audiogram_video_url = None
+
+def customize_audiogram():
+    st.write("---")
+    st.info("Click here to go back")
+    st.button("Back", on_click=reset_audiogram_video)
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    st.header("Preview selected items")
+    st.write("---")
+    st.subheader("Selected Video")
+    st.video(st.session_state.audiogram_video_url)
+    st.write("---")
+    st.subheader("Selected Utterances")
+    for utt in st.session_state.selected_audiogram_utterances:
+        st.caption(f"{utt['start_timestamp']} Speaker: {utt['speaker']}")
+        st.caption(utt['text'])
+    st.write("---")
+    st.subheader("Audio")
+    st.audio(st.session_state.audiogram_file_data["fb_doc"]["serving_url"])
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    st.header("Customize your Audiogram")
+    st.info("Other customizations(branding and styling) will be added in the future...")
+    font = st.selectbox("Font", ALL_FONTS)
+    font_color = st.color_picker("Font Color")
+    font_size = st.slider("Font Size", min_value=10, max_value=100, value=28)
+    if st.button("Generate Audiogram"):
+        with st.spinner("Generating Audiogram..."):
+            generate_audiogram(font, font_color, font_size)
+    st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+    if st.session_state.audiogram_video_output:
+        st.header("Output")
+        st.video(st.session_state.audiogram_video_output)
+        st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
+        
+    
+def generate_audiogram(font, font_color, font_size):
+    res = deciphr.generate_audiogram(quotes=st.session_state.selected_audiogram_utterances,
+                                     font=font, 
+                                     font_color=font_color, 
+                                     audio_url=st.session_state.audiogram_file_data["fb_doc"]["serving_url"], 
+                                     video_url=st.session_state.audiogram_video_url, 
+                                     token=st.session_state.token,
+                                     audio_ext=st.session_state.audiogram_file_data["fb_doc"]["path"].split(".")[-1],
+                                     font_size=font_size)
+    
+    st.session_state.audiogram_video_output = res
+
+    
 if __name__ == "__main__":
     if not st.session_state.logged_in_flag:
         header()
@@ -769,5 +975,11 @@ if __name__ == "__main__":
         listen_notes_processing_dashboard()
     elif st.session_state.set_email_verification_flag:
         email_verification_dashboard()
+    elif st.session_state.set_audiogram_flag and not st.session_state.audiogram_transcript_file:
+        audiogram_dashboard()
+    elif st.session_state.audiogram_transcript_file and not st.session_state.audiogram_video_url:
+        audiogram_editor()
+    elif st.session_state.audiogram_video_url:
+        customize_audiogram()
     else:
         dashboard()
