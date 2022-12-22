@@ -223,9 +223,11 @@ def set_audiogram_flag():
             
 def dashboard():
     st.title("Dashboard")
-    st.info("Hi, \n Just wanted to say a big thank you for taking the time to participate in the review poll.")
     st.info("UPDATES:")
     st.info("User Generated Image and Animation files are now saved in the database. You can view and download them from the 'Image Generation' or 'Animation' tab.")
+    st.info("Audiogram demo v1 is now out. You can now generate audiograms from the 'Audiogram' tab. Note that there are some prerequisites for this to work.")
+    st.write("- You need to have an audio file aready processed through deciphr.ai")
+    st.write("- You need to have an animation generated from the 'Animation' tab")
     st.markdown("""<hr style="height:8px; background-color:#ffffff; border-radius:10px" /> """, unsafe_allow_html=True)
     st.subheader("Your Transcripts")
     
